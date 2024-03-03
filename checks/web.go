@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"github.com/corpix/uarand"
 )
 
 type Web struct {
@@ -26,6 +27,9 @@ type urlData struct {
 func (c Web) Run(teamID uint, boxIp string, res chan Result, service Service) {
 	u := c.Url[rand.Intn(len(c.Url))]
 
+	// Select a random user agent from uarand
+	ua := uarand.GetRandom()
+
 	tr := &http.Transport{
 		MaxIdleConns:      1,
 		IdleConnTimeout:   GlobalTimeout, // address this
@@ -35,7 +39,19 @@ func (c Web) Run(teamID uint, boxIp string, res chan Result, service Service) {
 		},
 	}
 	client := &http.Client{Transport: tr}
-	resp, err := client.Get(c.Scheme + "://" + boxIp + ":" + strconv.Itoa(service.Port) + u.Path)
+	req, err := http.NewRequest("GET", c.Scheme + "://" + boxIp + ":" + strconv.Itoa(service.Port) + u.Path, nil)
+	if err != nil {
+		res <- Result{
+			Error: "failed to create request",
+			Debug: err.Error(),
+		}
+		return
+	}
+
+	// Set the User-Agent header to the random user agent
+	req.Header.Set("User-Agent", ua)
+
+	resp, err := client.Do(req)
 	if err != nil {
 		res <- Result{
 			Error: "web request errored out",
